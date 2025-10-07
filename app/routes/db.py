@@ -1,8 +1,7 @@
 # app/routes/article_routes.py
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from app.models import *
 from app.database import *
-from app.utils.utils import create_article_in_db, clean_markdown_with_llm, get_article_html, html_to_markdown
 from faker import Faker
 from datetime import datetime
 from typing import List, Optional
@@ -10,7 +9,14 @@ from bson import ObjectId
 import logging, time, re
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-
+from app.agents import MarkdownCleanerAgent, MarketingAgent
+# app/routes/db.py
+from app.utils.articles import (
+    create_article_in_db,
+    clean_markdown_with_llm,
+    get_article_html,
+    html_to_markdown
+)
 router = APIRouter()
 fake = Faker()
 
@@ -25,11 +31,7 @@ async def get_articles():
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error fetching articles")
 
-# ---------------------
-# CREATE FAKE ARTICLE
-# ---------------------
-@router.post("/create-fake-article")
-async def create_fake_article():
+
     for _ in range(5):
         try:
             article = Article(
@@ -114,9 +116,11 @@ async def delete_article(article_id: str):
 # CREATE ARTICLE FROM LINK
 # ---------------------
 @router.post("/add/")
-async def create_article_from_link(link: str):
+async def create_article_from_link(link: str, request: Request):
     total_start = time.time()
     try:
+        markdown_agent: MarkdownCleanerAgent = request.app.state.markdownCleaner_agent
+
         # Étape 1 : récupération HTML
         start = time.time()
         clean_html = await get_article_html(link)
@@ -131,15 +135,15 @@ async def create_article_from_link(link: str):
 
         # Étape 3 : nettoyage Markdown + métadonnées via LLM
         start = time.time()
-        cleaned_article = await clean_markdown_with_llm(markdown_text, link)
+        cleaned_article = await clean_markdown_with_llm(markdown_agent, markdown_text, link)
         duration = time.time() - start
         print(f"[DURATION] Nettoyage et extraction LLM : {duration:.2f}s")
 
-        # Étape 4 : insertion en DB (nettoyage final, doublons, traduction)
+        # Étape 4 : insertion en DB
         start = time.time()
         article = await create_article_in_db(cleaned_article)
         duration = time.time() - start
-        print(f"[DURATION] Insertion en DB (nettoyage final + traduction) : {duration:.2f}s")
+        print(f"[DURATION] Insertion en DB : {duration:.2f}s")
 
         total_duration = time.time() - total_start
         return {
