@@ -3,8 +3,9 @@ from beanie import init_beanie
 import asyncio
 from contextlib import asynccontextmanager
 from app.models import Article
-from app.routes.db import router as collection_routers
+from app.routes.colllections import router as collection_routers
 from app.routes.articles import router as articles_routers
+from app.routes.stats import router as stats_routers
 from app.agents import MarketingAgent, MarkdownCleanerAgent
 from app.utils.utils import find_config
 from app.database import init_db
@@ -38,5 +39,6 @@ async def lifespan(app: FastAPI):
 
 # --- Création de l'app FastAPI ---
 app = FastAPI(lifespan=lifespan)
-app.include_router(collection_routers, prefix="/collections", tags=["collections"])
-app.include_router(articles_routers, prefix="/articles", tags=["Articles"])
+app.include_router(collection_routers, prefix="/collections", tags=["Collections"])
+app.include_router(articles_routers, prefix="/ia", tags=["IA"])
+app.include_router(stats_routers, prefix="/stats", tags=["Stats"])
