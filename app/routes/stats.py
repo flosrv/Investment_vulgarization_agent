@@ -7,14 +7,15 @@ router = APIRouter()
 # ---------------------
 # 🔹 Estadísticas de la colección
 # ---------------------
+
 @router.get("/overview")
 async def stats_overview():
     """
     Total de artículos, procesados y no procesados.
     """
     try:
-        total = await Article.count_documents({})
-        processed = await Article.count_documents({"processed": True})
+        total = await Article.count()  # aucun argument
+        processed = await Article.find(Article.processed == True).count()
         unprocessed = total - processed
         return {"total": total, "processed": processed, "unprocessed": unprocessed}
     except Exception as e:
@@ -26,14 +27,20 @@ async def stats_by_tag():
     Contar cuántos artículos tienen cada tag.
     """
     try:
-        tags = await Article.aggregate([
+        # Crée le curseur Motor (pas coroutine)
+        cursor = Article.aggregate([
             {"$unwind": "$tags"},
             {"$group": {"_id": "$tags", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}}
-        ]).to_list()
+        ])
+
+        # Convertir en liste via async for
+        tags = [doc async for doc in cursor]
+        
         return {"tags": tags}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al contar por tags: {e}")
+
 
 @router.get("/by-month")
 async def stats_by_month():

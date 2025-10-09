@@ -21,7 +21,6 @@ Selecciona qué análisis quieres realizar y observa las visualizaciones interac
         "Selecciona estadísticas a mostrar:",
         [
             "Totales y procesados",
-            "Distribución por idioma",
             "Distribución por tags",
             "Artículos agregados por mes",
             "Artículos antiguos no procesados"
@@ -43,21 +42,6 @@ Selecciona qué análisis quieres realizar y observa las visualizaciones interac
         except Exception as e:
             show_feedback(False, f"Error al cargar totales: {e}")
 
-    # --- Distribución por idioma ---
-    if "Distribución por idioma" in stats_options:
-        st.markdown("### 🌐 Distribución por idioma")
-        try:
-            res = requests.get(f"{API_STATS_URL}/stats/by-language")
-            res.raise_for_status()
-            data = res.json()
-            if data.get("languages"):
-                df = pd.DataFrame(data["languages"])
-                fig = px.pie(df, names="_id", values="count", title="Artículos por idioma")
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No hay datos de idiomas disponibles.")
-        except Exception as e:
-            show_feedback(False, f"Error al cargar idiomas: {e}")
 
     # --- Distribución por tags ---
     if "Distribución por tags" in stats_options:
