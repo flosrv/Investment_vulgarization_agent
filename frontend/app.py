@@ -2,16 +2,16 @@ import streamlit as st
 from components.constant_components import main_header, sidebar_mode_selector
 
 # === Page configuration ===
-st.set_page_config(page_title="Gestor de Artículos", layout="wide")
-
+st.set_page_config(page_title="IA De gestion de articulos para contenidos de redes", 
+                   layout="wide")
 # === Affichage du header principal avec instructions générales ===
 main_header()
 
-st.markdown("""
-Bienvenido a la interfaz de gestión de artículos.  
-Sigue las instrucciones paso a paso según el **modo de trabajo** que selecciones a la izquierda.  
-Cada acción mostrará información clara, logs en tiempo real y mensajes de éxito o error para que sepas exactamente qué ocurre.
-""")
+# st.markdown("""
+# Bienvenido a la interfaz de gestión de artículos.  
+# Sigue las instrucciones paso a paso según el **modo de trabajo** que selecciones a la izquierda.  
+# Cada acción mostrará información clara, logs en tiempo real y mensajes de éxito o error para que sepas exactamente qué ocurre.
+# """)
 
 # === Choix du mode via sidebar ===
 modo = sidebar_mode_selector()

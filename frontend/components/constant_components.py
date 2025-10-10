@@ -64,12 +64,12 @@ def main_header():
     Muestra el header principal con instrucciones generales para el usuario.
     """
     st.title("📚 Gestor de Artículos — Interfaz API")
-    st.markdown("""
-Bienvenido a la interfaz de gestión de artículos y base de datos MongoDB.  
-Cada **modo de trabajo** tiene una función específica:
+#     st.markdown("""
+# Bienvenido a la interfaz de gestión de artículos y base de datos MongoDB.  
+# Cada **modo de trabajo** tiene una función específica:
 
-- 🗃️ **CRUD Colección**: administrar directamente los documentos de la base MongoDB (ver, actualizar, eliminar).  
-- 🤖 **IA Artículos**: aplicar inteligencia artificial a los artículos (resumen, limpieza, generación de publicaciones).
+# - 🗃️ **CRUD Colección**: administrar directamente los documentos de la base MongoDB (ver, actualizar, eliminar).  
+# - 🤖 **IA Artículos**: aplicar inteligencia artificial a los artículos (resumen, limpieza, generación de publicaciones).
 
-Sigue las instrucciones paso a paso y observa los logs para entender cada acción.
-""")
+# Sigue las instrucciones paso a paso y observa los logs para entender cada acción.
+# """)

@@ -3,11 +3,56 @@ from datetime import datetime
 from app.models import Article, SocialPost
 from typing import List, Dict, Any
 import logging
+from app.agents import RAGAgent
 from beanie import PydanticObjectId
+from fastapi import APIRouter, Request, HTTPException
+from app.models import Article
+import numpy as np
+from sentence_transformers import SentenceTransformer  # ou ton modèle d'embeddings
 
+embed_model = SentenceTransformer("all-MiniLM-L6-v2")  # exemple de modèle
 logger = logging.getLogger("social_posts")
 router = APIRouter()
 
+@router.post("/vectorize_articles")
+async def vectorize_all_articles(request: Request):
+    """
+    Récupère tous les articles de MongoDB et les ajoute dans l'index FAISS.
+    Ignore ceux déjà présents. Renvoie toujours une réponse même en cas d'erreur.
+    """
+    try:
+        faiss_index = request.app.state.faiss_index
+        article_ids = request.app.state.article_ids  # set des IDs déjà indexés
+
+        # Récupérer tous les articles
+        articles = await Article.find_all().to_list()
+        logging.info(f"Found {len(articles)} articles in MongoDB")
+
+        new_articles = []
+        vectors_to_add = []
+        ids_to_add = []
+
+        for art in articles:
+            str_id = str(art.id)
+            if str_id not in article_ids:
+                vector = np.array(art.embedding if hasattr(art, "embedding") else [0.0]*128, dtype='float32')
+                vectors_to_add.append(vector)
+                ids_to_add.append(str_id)
+                new_articles.append(art)
+
+        if vectors_to_add:
+            faiss_index.add(np.array(vectors_to_add, dtype='float32'))
+            article_ids.update(ids_to_add)
+            logging.info(f"Added {len(new_articles)} new articles to FAISS index")
+        else:
+            logging.info("No new articles to add to FAISS index")
+
+        return {"added": len(new_articles), "total_in_index": len(article_ids), "status": "success"}
+
+    except Exception as e:
+        logging.exception("Error vectorizing articles")
+        # On renvoie l’erreur dans le JSON au lieu de lever une exception
+        return {"added": 0, "total_in_index": len(request.app.state.article_ids), "status": "error", "detail": str(e)}
 
 @router.post("/generate_social_posts/")
 async def generate_social_posts(
@@ -157,3 +202,44 @@ async def generate_social_posts(
             "Consultez les logs pour identifier les articles ignorés ou les erreurs de génération."
         ]
     }
+
+@router.post("/ask")
+async def ask_knowledge(request: Request, question: str):
+    """
+    Pose une question à la base de connaissances vectorielle FAISS.
+    Retourne les articles les plus proches et une réponse générée.
+    """
+    try:
+        logging.info("[/ask] Received question: %s", question)
+
+        # Accès aux ressources du serveur
+        faiss_index = request.app.state.faiss_index
+        rag_agent = request.app.state.rag_agent
+        article_ids = list(request.app.state.article_ids)  # IDs déjà dans FAISS
+
+        if not article_ids:
+            logging.warning("[/ask] No articles in FAISS yet.")
+            return {"question": question, "answer": "No articles indexed yet.", "articles": []}
+
+        # Crée le vecteur de la question via l'agent RAG
+        q_vector = np.array([rag_agent.markdown_agent.embed_text(question)], dtype='float32')
+
+        # Recherche des k voisins les plus proches
+        D, I = faiss_index.search(q_vector, rag_agent.top_k)
+        logging.info("[/ask] FAISS returned %d nearest neighbors", len(I[0]))
+
+        # Récupérer les IDs correspondants
+        closest_ids = [article_ids[i] for i in I[0] if i < len(article_ids)]
+        logging.info("[/ask] Closest article IDs: %s", closest_ids)
+
+        # Obtenir les contenus via l'agent RAG
+        result = await rag_agent.answer_question_by_ids(question, closest_ids)
+        logging.info("[/ask] Returning answer to client")
+
+        return result
+
+    except Exception as e:
+        logging.error("[/ask] Error during RAG query: %s", e)
+        raise HTTPException(status_code=500, detail=f"Error in RAG query: {e}")
+
+
